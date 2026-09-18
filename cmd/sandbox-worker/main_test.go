@@ -19,3 +19,13 @@ func TestParseFlags_RejectsConcurrencyBelowOne(t *testing.T) {
 		})
 	}
 }
+
+func TestParseFlags_AcceptsConcurrencyOfOne(t *testing.T) {
+	cfg, err := parseFlags([]string{"--concurrency", "1"}, io.Discard)
+	if err != nil {
+		t.Fatalf("--concurrency 1 was rejected: %v", err)
+	}
+	if cfg.concurrency != 1 {
+		t.Errorf("concurrency = %d, want 1", cfg.concurrency)
+	}
+}

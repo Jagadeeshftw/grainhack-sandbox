@@ -37,6 +37,14 @@ func parseFlags(args []string, stderr io.Writer) (config, error) {
 	if err := fs.Parse(args); err != nil {
 		return config{}, err
 	}
+	if *concurrency < 1 {
+		// Report it the way the flag package reports its own parse errors,
+		// so main does not need to know which kind of error it got.
+		err := fmt.Errorf("invalid value %d for flag --concurrency: must be at least 1", *concurrency)
+		fmt.Fprintln(fs.Output(), err)
+		fs.Usage()
+		return config{}, err
+	}
 	return config{concurrency: *concurrency, warmup: *warmup}, nil
 }
 
@@ -57,8 +65,12 @@ func (d downstream) call(ctx context.Context, job string) error {
 }
 
 // runWorkers starts n workers that take jobs from the channel until it is
-// closed, and returns a function that waits for them all to finish.
+// closed, and returns a function that waits for them all to finish. n must
+// be at least 1: a pool with no workers would accept jobs and never run them.
 func runWorkers(ctx context.Context, n int, jobs <-chan string, handle func(context.Context, string)) (wait func()) {
+	if n < 1 {
+		panic(fmt.Sprintf("runWorkers: n must be at least 1, got %d", n))
+	}
 	var wg sync.WaitGroup
 	for i := 0; i < n; i++ {
 		wg.Add(1)
