@@ -45,11 +45,22 @@ var sleep = func(ctx context.Context, d time.Duration) error {
 // cancelled, and returns the last error if it never succeeds.
 func Retry(ctx context.Context, p Policy, op func(ctx context.Context) error) error {
 	var err error
+	delay := p.BaseDelay
 	for attempt := 1; attempt <= p.MaxAttempts; attempt++ {
 		if err = op(ctx); err == nil {
 			return nil
 		}
 		log.Printf("attempt %d/%d failed: %v", attempt, p.MaxAttempts, err)
+		if attempt == p.MaxAttempts {
+			break
+		}
+		if p.MaxDelay > 0 && delay > p.MaxDelay {
+			delay = p.MaxDelay
+		}
+		if serr := sleep(ctx, delay); serr != nil {
+			return fmt.Errorf("stopped retrying after %d attempts (last error: %v): %w", attempt, err, serr)
+		}
+		delay *= 2
 	}
 	return fmt.Errorf("giving up after %d attempts: %w", p.MaxAttempts, err)
 }
